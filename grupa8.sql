@@ -34,7 +34,7 @@ FROM staza, drzava, rezultat
 WHERE ids = stazar AND drzs = idd AND 
     sezona = 2019 AND bodovi < (SELECT AVG(bodovi) 
                                 FROM rezultat
-                                WHERE sezona = 2019);
+                                WHERE sezona = 2019);   
 
 /*Prikazati sve staze (idenfikaciona oznaka staze, naziv staze i naziv
 države u kojoj se staza nalazi) na kojim je barem jednom pobedio domaći
@@ -50,13 +50,17 @@ WHERE ids = stazar AND drzs = idd AND idv = vozacr AND
 nastupa za državu sa nazivom Germany, a nije nastupao ni jedan vozač koji
 nastupa za državu sa nazivom Finland. */
 
-SELECT ids, nazivs
+SELECT DISTINCT ids, nazivs
 FROM staza, vozac, rezultat
 WHERE ids = stazar AND idv = vozacr AND 
-    idv IN (SELECT idv FROM vozac, drzava 
-            WHERE drzv = idd AND nazivd = 'Germany') AND
-    idv NOT IN (SELECT idv FROM vozac, drzava
-                WHERE drzv = idd AND nazivd = 'Findland');
+    vozacr IN (SELECT idv FROM vozac, drzava 
+            WHERE drzv = idd AND nazivd = 'Germany')
+MINUS
+SELECT DISTINCT ids, nazivs
+FROM staza, vozac, rezultat
+WHERE ids = stazar AND idv = vozacr AND
+    vozacr IN (SELECT idv FROM vozac, drzava
+                WHERE drzv = idd AND nazivd = 'Finland');
 
 /*Za svaku stazu (IDS, NAZIVS) prikazati broj različitih pobednika.
 Prikazati samo one staze na kojima su pobeđivala najviše dva različita
@@ -114,6 +118,8 @@ neophodno prikazati u kilometrima. Kao jedinicu za staze gde je izvršena
 konverzija prikazati „miles“, a ukoliko nije „km“. Ako za stazu nema
 zabeleženih rezultata za ukupan broj vozača koji su nastupali na stazi prikazati
 0.*/
+
+/* NIJE KORIŠTENO DISTINCT DA BI SE NEŠTO KONVERTOVALO U MILJE */
 
 WITH konvertovana_duzina AS (
 SELECT stazar staza_id, duzkrug * 0.62 duzina_kruga, COUNT(vozacr) broj_vozaca, 'miles' jedinica  
