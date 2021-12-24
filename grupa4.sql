@@ -63,7 +63,7 @@ FROM vozac v
 LEFT OUTER JOIN rezultat r
 ON v.idv = r.vozacr 
 GROUP BY idv, imev, prezv
-HAVING COUNT(sezona) < 2;
+HAVING COUNT(DISTINCT sezona) < 2;
 
 /* Svakom vozaču promeniti ime tako da se na kraj imena doda prvo slovo
 prezimena */
@@ -81,12 +81,16 @@ prosečna maksimalna brzina 0. */
     
 CREATE OR REPLACE VIEW 
 pogled_vozac_rezultat (id, ime, prezime, prosecna_maks_brzina) AS
-SELECT idv, imev, prezv, NVL(ROUND(AVG(maksbrzina), 2), 0) 
+SELECT idv, imev, prezv, ROUND(AVG(maksbrzina), 2)
 FROM vozac v
 LEFT OUTER JOIN rezultat r 
 ON idv = vozacr
 GROUP BY idv, imev, prezv
 HAVING AVG(maksbrzina) < 350
+UNION
+SELECT idv, imev, prezv, 0
+FROM vozac
+WHERE idv NOT IN (SELECT vozacr FROM rezultat)
 ORDER BY idv;
 
 SELECT * FROM pogled_vozac_rezultat;
@@ -100,36 +104,20 @@ dodeljuju još tri, drugoplasiranom dva, a trećeplasiranom jedan dodatni bod.
 Za sve ostale rezultate se ne vrši konverzija. */
 
 WITH konv AS (
-SELECT stazar staza_id, vozacr vozac_id, 4 - NVL(plasman, 4) bonus_poeni 
+SELECT stazar staza_id, vozacr vozac_id, GREATEST(4 - NVL(plasman, 4), 0) bonus_poeni, sezona
 FROM rezultat 
 WHERE sezona = 2019
 UNION
-SELECT stazar staza_id, vozacr vozac_id, 0 bonus_poeni
+SELECT stazar staza_id, vozacr vozac_id, 0 bonus_poeni, sezona
 FROM rezultat 
 WHERE sezona != 2019
 ), konvertovani_poeni AS (
-SELECT staza_id, r.sezona sezona_k, bodovi + k.bonus_poeni konvertovani
+SELECT DISTINCT staza_id, r.sezona sezona_k, NVL(bodovi, 0) + k.bonus_poeni konvertovani
 FROM rezultat r, konv k
-WHERE r.vozacr = k.vozac_id AND r.stazar = k.staza_id
+WHERE r.vozacr = k.vozac_id AND r.stazar = k.staza_id AND r.sezona = k.sezona
 )
 SELECT DISTINCT nazivs, stazar, sezona, ROUND(AVG(kp.konvertovani), 2) AS "prosjecan broj poena"
 FROM rezultat r2, konvertovani_poeni kp, staza 
 WHERE r2.stazar = kp.staza_id AND kp.sezona_k = sezona AND ids = r2.stazar
 GROUP BY stazar, sezona, nazivs
 ORDER BY nazivs DESC;
-
-WITH konv AS (
-SELECT stazar staza_id, vozacr vozac_id, 4 - NVL(plasman, 4) bonus_poeni 
-FROM rezultat 
-WHERE sezona = 2019
-UNION
-SELECT stazar staza_id, vozacr vozac_id, 0 bonus_poeni
-FROM rezultat 
-WHERE sezona != 2019
-)
-SELECT staza_id, vozacr, r.sezona sezona_k, bodovi + k.bonus_poeni konvertovani
-FROM rezultat r, konv k
-WHERE r.vozacr = k.vozac_id AND r.stazar = k.staza_id;
-
-SELECT stazar, sezona, vozacr, bodovi 
-FROM rezultat;
